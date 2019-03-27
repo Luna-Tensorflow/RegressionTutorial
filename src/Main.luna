@@ -1,0 +1,62 @@
+import Std.Base
+import Dataframes.Table
+import Dataframes.Column
+import Tensorflow.Optimizers.RMSProp
+import Tensorflow.Tensor
+import Tensorflow.Types
+import Tensorflow.Operations
+import Tensorflow.GeneratedOps
+import RegressionTutorial.DblColumn
+
+def extendWith table name value:
+    table' = table.eachTo name (row: (row.at "Origin" == value).switch 0.0 1.0)
+    table'
+
+def oneHotOrigin table:
+    t1 = extendWith table "USA" 1
+    t2 = extendWith t1 "Europe" 2
+    t3 = extendWith t2 "Japan" 3
+    t3
+
+def shuffle table:
+    row = table.rowCount
+    rand = randomTensor FloatType [row] 0.0 0.0
+    col = columnFromList "rand" (rand.toFlatList)
+    table1 = table.setAt "rand" col
+    table2 = table1.sort "rand"
+    table3 = table2.remove "rand"
+    table3
+
+def sample table fracTest:
+    testCount = (fracTest * table.rowCount.toReal).floor
+    test = table.take testCount
+    train = table.drop testCount
+    (train, test)
+
+
+def transposeTensor t:
+    c = makeConst t
+    perm = constFromList Int64Type [1,0]
+    transposed = transposeGen "" c perm c.typetag perm.typetag
+    t' = transposed.eval
+    t'
+
+def convertToTf table:
+    lst = table.toList . each (col: col.toList)
+    t1 = tensorFromList2d FloatType lst
+    t2 = transposeTensor t1
+    lst' = tensorTo2dList t2
+    samples = lst'.each(l: tensorFromList1d FloatType l)
+    samples
+
+def main:
+    table = Table.read "auto-mpg.csv"
+    table1 = table.dropNa
+    table2 = oneHotOrigin table1
+    table3 = table2.remove "Origin"
+    table4 = shuffle table3
+    (trainTable, testTable) = sample table4 0.2
+    train = convertToTf trainTable
+    test = convertToTf testTable
+    rmsPropOptimizer1 = rmsPropOptimizer 0.1 0.1 0.1 0.1
+    None

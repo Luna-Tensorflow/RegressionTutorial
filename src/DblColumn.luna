@@ -1,0 +1,8 @@
+import Dataframes.Types
+import Dataframes.Column
+
+«0»def columnFromList name list:
+    «1»col= Column.fromList name DoubleType list
+    «2»col
+
+### META {"metas":[{"marker":1,"meta":{"_displayResult":false,"_selectedVisualizer":null,"_position":{"fromPosition":{"_vector2_y":0,"_vector2_x":0}}}},{"marker":2,"meta":{"_displayResult":false,"_selectedVisualizer":null,"_position":{"fromPosition":{"_vector2_y":0,"_vector2_x":320}}}}]}
