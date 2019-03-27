@@ -59,6 +59,7 @@ def convertToTf shape table:
 
 def main:
     print "Loading data"
+    
     table = Table.read "auto-mpg.csv"
     table1 = table.dropNa
     table2 = oneHotOrigin table1
@@ -87,7 +88,7 @@ def main:
     rho = 0.9
     momentum = 0.0
     epsilon = 0.000000001
-    opt = rmsPropOptimizer lr rho momentum epsilon 
+    opt = rmsPropOptimizer lr rho momentum epsilon
 
     loss = meanSquareError
 
@@ -95,13 +96,15 @@ def main:
 
 
     print "Training"
-    fitted = model.train trainX trainY
+    epochsN = 10
+    epochs = 1.upto epochsN
+    fitted = epochs.foldLeft model (epoch: model: model.train trainX trainY)
 
     print "Evaluation"
     predY = testX . each (tx: fitted.evaluate tx . head . get)
 
     print (testY.toJSON)
-    errorSum = (predY . zip testY) . fold 0.0 ((pY, tY): ((absPatch (pY.atIndex 0 - tY.atIndex 0)) +) ) # 0 is ok, 1 is fail
+    errorSum = (predY . zip testY) . foldLeft 0.0 ((pY, tY): ((absPatch (pY.atIndex 0 - tY.atIndex 0)) +) )
     maxn = testX.length . toReal
     meanErr = errorSum / maxn
     print ("Mean error: " + (meanErr.toText))
@@ -109,3 +112,4 @@ def main:
 
 def absPatch x:
   if x < 0.0 then x.negate else x
+
