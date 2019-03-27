@@ -1,7 +1,11 @@
 import Std.Base
 import Dataframes.Table
 import Dataframes.Column
+import Tensorflow.Layers.Input
+import Tensorflow.Layers.Dense
 import Tensorflow.Optimizers.RMSProp
+import Tensorflow.Losses.MeanError
+import Tensorflow.Model
 import Tensorflow.Tensor
 import Tensorflow.Types
 import Tensorflow.Operations
@@ -41,22 +45,67 @@ def transposeTensor t:
     t' = transposed.eval
     t'
 
-def convertToTf table:
+def nfeatures:
+    9
+
+def convertToTf shape table:
+    "this is a workaround until we get native Dataframes <-> TF integration"
     lst = table.toList . each (col: col.toList)
     t1 = tensorFromList2d FloatType lst
     t2 = transposeTensor t1
     lst' = tensorTo2dList t2
-    samples = lst'.each(l: tensorFromList1d FloatType l)
+    samples = lst'.each(l: tensorFromList FloatType shape l)
     samples
 
 def main:
+    print "Loading data"
     table = Table.read "auto-mpg.csv"
     table1 = table.dropNa
     table2 = oneHotOrigin table1
     table3 = table2.remove "Origin"
     table4 = shuffle table3
     (trainTable, testTable) = sample table4 0.2
-    train = convertToTf trainTable
-    test = convertToTf testTable
-    rmsPropOptimizer1 = rmsPropOptimizer 0.1 0.1 0.1 0.1
+    print "TODO: normalize both tables using stats from train"
+
+    trainLabels = trainTable.at "MPG"
+    testLabels = testTable.at "MPG"
+    trainTable' = trainTable.remove "MPG"
+    testTable' = testTable.remove "MPG"
+
+    trainX = convertToTf [nfeatures, 1] trainTable'
+    testX = convertToTf [nfeatures, 1] testTable'
+    trainY = convertToTf [1, 1] trainLabels
+    testY = convertToTf [1, 1] testLabels
+
+    print "Building net"
+    i = input FloatType [nfeatures, 1]
+    d1 = denseWithActivation 64 relu i
+    d2 = denseWithActivation 64 relu d1
+    d3 = denseWithActivation 1 relu d2
+
+    lr = 0.001
+    rho = 0.9
+    momentum = 0.0
+    epsilon = 0.000000001
+    opt = rmsPropOptimizer lr rho momentum epsilon 
+
+    loss = meanSquareError
+
+    model = makeModel i d3 opt loss
+
+
+    print "Training"
+    fitted = model.train trainX trainY
+
+    print "Evaluation"
+    predY = testX . each (tx: fitted.evaluate tx . head . get)
+
+    print (testY.toJSON)
+    errorSum = (predY . zip testY) . fold 0.0 ((pY, tY): ((absPatch (pY.atIndex 0 - tY.atIndex 0)) +) ) # 0 is ok, 1 is fail
+    maxn = testX.length . toReal
+    meanErr = errorSum / maxn
+    print ("Mean error: " + (meanErr.toText))
     None
+
+def absPatch x:
+  if x < 0.0 then x.negate else x
