@@ -12,104 +12,98 @@ import Tensorflow.Operations
 import Tensorflow.GeneratedOps
 import RegressionTutorial.DblColumn
 
-def extendWith table name value:
-    table' = table.eachTo name (row: (row.at "Origin" == value).switch 0.0 1.0)
+«0»def extendWith table name value:
+    «9»table' = table.eachTo name (row: «10»(row.at "Origin" == value).switch 0.0 1.0)
     table'
 
-def oneHotOrigin table:
-    t1 = extendWith table "USA" 1
-    t2 = extendWith t1 "Europe" 2
-    t3 = extendWith t2 "Japan" 3
+«1»def oneHotOrigin table:
+    «11»t1 = extendWith table "USA" 1
+    «12»t2 = extendWith t1 "Europe" 2
+    «13»t3 = extendWith t2 "Japan" 3
     t3
 
-def shuffle table:
-    row = table.rowCount
-    rand = randomTensor FloatType [row] 0.0 0.0
-    col = columnFromList "rand" (rand.toFlatList)
-    table1 = table.setAt "rand" col
-    table2 = table1.sort "rand"
-    table3 = table2.remove "rand"
+«2»def shuffle table:
+    «14»row = table.rowCount
+    «15»rand = Tensors.random FloatType [row] 0.0 0.0
+    «16»col = columnFromList "rand" (rand.toFlatList)
+    «17»table1 = table.setAt "rand" col
+    «18»table2 = table1.sort "rand"
+    «19»table3 = table2.remove "rand"
     table3
 
-def sample table fracTest:
-    testCount = (fracTest * table.rowCount.toReal).floor
-    test = table.take testCount
-    train = table.drop testCount
-    (train, test)
+«3»def sample table fracTest:
+    «20»testCount = (fracTest * table.rowCount.toReal).floor
+    «21»test = table.take testCount
+    «22»train = table.drop testCount
+    «23»(train, test)
 
+«5»def nfeatures:
+    «28»9
 
-def transposeTensor t:
-    c = makeConst t
-    perm = constFromList Int64Type [1,0]
-    transposed = transposeGen "" c perm c.typetag perm.typetag
-    t' = transposed.eval
-    t'
-
-def nfeatures:
-    9
-
-def convertToTf shape table:
-    "this is a workaround until we get native Dataframes <-> TF integration"
-    lst = table.toList . each (col: col.toList)
-    t1 = tensorFromList2d FloatType lst
-    t2 = transposeTensor t1
-    lst' = tensorTo2dList t2
-    samples = lst'.each(l: tensorFromList FloatType shape l)
+«6»def convertToTf shape table:
+    «29»"this is a workaround until we get native Dataframes <-> TF integration"
+    «30»lst = table.toList . each (col: «31»col.toList)
+    «32»t1 = Tensors.fromList2d FloatType lst
+    «33»t2 = Tensors.transpose t1
+    «34»lst' = Tensors.to2dList t2
+    «35»samples = lst'.each(l: «36»Tensors.fromList FloatType shape l)
     samples
 
-def main:
-    print "Loading data"
+«7»def main:
+    «37»print "Loading data"
     
-    table = Table.read "auto-mpg.csv"
-    table1 = table.dropNa
-    table2 = oneHotOrigin table1
-    table3 = table2.remove "Origin"
-    table4 = shuffle table3
-    (trainTable, testTable) = sample table4 0.2
-    print "TODO: normalize both tables using stats from train"
+    «38»table = Table.read "auto-mpg.csv"
+    «39»table1 = table.dropNa
+    «40»table2 = oneHotOrigin table1
+    «41»table3 = table2.remove "Origin"
+    «42»table4 = shuffle table3
+    «43»(trainTable, testTable) = sample table4 0.2
+    «44»print "TODO: normalize both tables using stats from train"
 
-    trainLabels = trainTable.at "MPG"
-    testLabels = testTable.at "MPG"
-    trainTable' = trainTable.remove "MPG"
-    testTable' = testTable.remove "MPG"
+    «45»trainLabels = trainTable.at "MPG"
+    «46»testLabels = testTable.at "MPG"
+    «47»trainTable' = trainTable.remove "MPG"
+    «48»testTable' = testTable.remove "MPG"
 
-    trainX = convertToTf [nfeatures, 1] trainTable'
-    testX = convertToTf [nfeatures, 1] testTable'
-    trainY = convertToTf [1, 1] trainLabels
-    testY = convertToTf [1, 1] testLabels
+    «49»trainX = convertToTf [nfeatures, 1] trainTable'
+    «50»testX = convertToTf [nfeatures, 1] testTable'
+    «51»trainY = convertToTf [1, 1] trainLabels
+    «52»testY = convertToTf [1, 1] testLabels
 
-    print "Building net"
-    i = input FloatType [nfeatures, 1]
-    d1 = denseWithActivation 64 relu i
-    d2 = denseWithActivation 64 relu d1
-    d3 = denseWithActivation 1 relu d2
+    «53»print "Building net"
+    «54»i = Input.create FloatType [nfeatures, 1]
+    «55»d1 = Dense.createWithActivation 64 Operations.relu i
+    «56»d2 = Dense.createWithActivation 64 Operations.relu d1
+    «57»d3 = Dense.createWithActivation 1 Operations.relu d2
 
-    lr = 0.001
-    rho = 0.9
-    momentum = 0.0
-    epsilon = 0.000000001
-    opt = rmsPropOptimizer lr rho momentum epsilon
+    «58»lr = 0.001
+    «59»rho = 0.9
+    «60»momentum = 0.0
+    «61»epsilon = 0.000000001
+    «62»opt = RMSPropOptimizer.create lr rho momentum epsilon
 
-    loss = meanSquareError
+    «63»loss = MeanErrors.meanSquareError
 
-    model = makeModel i d3 opt loss
+    «64»model = Models.make i d3 opt loss
 
 
-    print "Training"
-    epochsN = 10
-    epochs = 1.upto epochsN
-    fitted = epochs.foldLeft model (epoch: model: model.train trainX trainY)
+    «65»print "Training"
+    «66»epochsN = 10
+    «67»epochs = 1.upto epochsN
+    «68»fitted = epochs.foldLeft model (epoch: model: «69»model.train trainX trainY)
 
-    print "Evaluation"
-    predY = testX . each (tx: fitted.evaluate tx . head . get)
+    «70»print "Evaluation"
+    «71»predY = testX . each (tx: «72»fitted.evaluate tx . head . get)
 
-    print (testY.toJSON)
-    errorSum = (predY . zip testY) . foldLeft 0.0 ((pY, tY): ((absPatch (pY.atIndex 0 - tY.atIndex 0)) +) )
-    maxn = testX.length . toReal
-    meanErr = errorSum / maxn
-    print ("Mean error: " + (meanErr.toText))
+    «73»print (testY.toJSON)
+    «74»errorSum = (predY . zip testY) . foldLeft 0.0 ((pY, tY): «75»((absPatch (pY.atIndex 0 - tY.atIndex 0)) +) )
+    «76»maxn = testX.length . toReal
+    «77»meanErr = errorSum / maxn
+    «78»print ("Mean error: " + (meanErr.toText))
     None
 
-def absPatch x:
-  if x < 0.0 then x.negate else x
+«8»def absPatch x:
+  «79»if x < 0.0 then x.negate else x
 
+
+### META {"metas":[{"marker":28,"meta":{"_displayResult":false,"_selectedVisualizer":null,"_position":{"fromPosition":{"_vector2_y":0,"_vector2_x":0}}}},{"marker":11,"meta":{"_displayResult":false,"_selectedVisualizer":null,"_position":{"fromPosition":{"_vector2_y":0,"_vector2_x":0}}}},{"marker":12,"meta":{"_displayResult":false,"_selectedVisualizer":null,"_position":{"fromPosition":{"_vector2_y":0,"_vector2_x":320}}}},{"marker":13,"meta":{"_displayResult":false,"_selectedVisualizer":null,"_position":{"fromPosition":{"_vector2_y":0,"_vector2_x":640}}}},{"marker":9,"meta":{"_displayResult":false,"_selectedVisualizer":null,"_position":{"fromPosition":{"_vector2_y":0,"_vector2_x":0}}}},{"marker":10,"meta":{"_displayResult":false,"_selectedVisualizer":null,"_position":{"fromPosition":{"_vector2_y":0,"_vector2_x":0}}}},{"marker":29,"meta":{"_displayResult":false,"_selectedVisualizer":null,"_position":{"fromPosition":{"_vector2_y":320,"_vector2_x":0}}}},{"marker":30,"meta":{"_displayResult":false,"_selectedVisualizer":null,"_position":{"fromPosition":{"_vector2_y":320,"_vector2_x":320}}}},{"marker":31,"meta":{"_displayResult":false,"_selectedVisualizer":null,"_position":{"fromPosition":{"_vector2_y":0,"_vector2_x":0}}}},{"marker":32,"meta":{"_displayResult":false,"_selectedVisualizer":null,"_position":{"fromPosition":{"_vector2_y":320,"_vector2_x":640}}}},{"marker":33,"meta":{"_displayResult":false,"_selectedVisualizer":null,"_position":{"fromPosition":{"_vector2_y":320,"_vector2_x":960}}}},{"marker":34,"meta":{"_displayResult":false,"_selectedVisualizer":null,"_position":{"fromPosition":{"_vector2_y":320,"_vector2_x":1280}}}},{"marker":35,"meta":{"_displayResult":false,"_selectedVisualizer":null,"_position":{"fromPosition":{"_vector2_y":320,"_vector2_x":1600}}}},{"marker":36,"meta":{"_displayResult":false,"_selectedVisualizer":null,"_position":{"fromPosition":{"_vector2_y":0,"_vector2_x":0}}}},{"marker":20,"meta":{"_displayResult":false,"_selectedVisualizer":null,"_position":{"fromPosition":{"_vector2_y":64,"_vector2_x":0}}}},{"marker":21,"meta":{"_displayResult":false,"_selectedVisualizer":null,"_position":{"fromPosition":{"_vector2_y":64,"_vector2_x":320}}}},{"marker":22,"meta":{"_displayResult":false,"_selectedVisualizer":null,"_position":{"fromPosition":{"_vector2_y":256,"_vector2_x":240}}}},{"marker":23,"meta":{"_displayResult":false,"_selectedVisualizer":null,"_position":{"fromPosition":{"_vector2_y":256,"_vector2_x":560}}}},{"marker":79,"meta":{"_displayResult":false,"_selectedVisualizer":null,"_position":{"fromPosition":{"_vector2_y":0,"_vector2_x":0}}}},{"marker":14,"meta":{"_displayResult":false,"_selectedVisualizer":null,"_position":{"fromPosition":{"_vector2_y":0,"_vector2_x":0}}}},{"marker":15,"meta":{"_displayResult":false,"_selectedVisualizer":null,"_position":{"fromPosition":{"_vector2_y":0,"_vector2_x":320}}}},{"marker":16,"meta":{"_displayResult":false,"_selectedVisualizer":null,"_position":{"fromPosition":{"_vector2_y":0,"_vector2_x":640}}}},{"marker":17,"meta":{"_displayResult":false,"_selectedVisualizer":null,"_position":{"fromPosition":{"_vector2_y":0,"_vector2_x":960}}}},{"marker":18,"meta":{"_displayResult":false,"_selectedVisualizer":null,"_position":{"fromPosition":{"_vector2_y":0,"_vector2_x":1280}}}},{"marker":19,"meta":{"_displayResult":false,"_selectedVisualizer":null,"_position":{"fromPosition":{"_vector2_y":0,"_vector2_x":1600}}}},{"marker":37,"meta":{"_displayResult":false,"_selectedVisualizer":null,"_position":{"fromPosition":{"_vector2_y":3200,"_vector2_x":0}}}},{"marker":38,"meta":{"_displayResult":false,"_selectedVisualizer":null,"_position":{"fromPosition":{"_vector2_y":3200,"_vector2_x":320}}}},{"marker":39,"meta":{"_displayResult":false,"_selectedVisualizer":null,"_position":{"fromPosition":{"_vector2_y":3200,"_vector2_x":640}}}},{"marker":40,"meta":{"_displayResult":false,"_selectedVisualizer":null,"_position":{"fromPosition":{"_vector2_y":3200,"_vector2_x":960}}}},{"marker":41,"meta":{"_displayResult":false,"_selectedVisualizer":null,"_position":{"fromPosition":{"_vector2_y":3200,"_vector2_x":1280}}}},{"marker":42,"meta":{"_displayResult":false,"_selectedVisualizer":null,"_position":{"fromPosition":{"_vector2_y":3200,"_vector2_x":1600}}}},{"marker":43,"meta":{"_displayResult":false,"_selectedVisualizer":null,"_position":{"fromPosition":{"_vector2_y":3200,"_vector2_x":1920}}}},{"marker":44,"meta":{"_displayResult":false,"_selectedVisualizer":["LunaVisualizer: base: json","base/json/json.html"],"_position":{"fromPosition":{"_vector2_y":4256,"_vector2_x":2912}}}},{"marker":45,"meta":{"_displayResult":false,"_selectedVisualizer":null,"_position":{"fromPosition":{"_vector2_y":4512,"_vector2_x":944}}}},{"marker":46,"meta":{"_displayResult":false,"_selectedVisualizer":null,"_position":{"fromPosition":{"_vector2_y":4832,"_vector2_x":944}}}},{"marker":47,"meta":{"_displayResult":false,"_selectedVisualizer":null,"_position":{"fromPosition":{"_vector2_y":4192,"_vector2_x":944}}}},{"marker":48,"meta":{"_displayResult":false,"_selectedVisualizer":null,"_position":{"fromPosition":{"_vector2_y":4512,"_vector2_x":944}}}},{"marker":49,"meta":{"_displayResult":false,"_selectedVisualizer":null,"_position":{"fromPosition":{"_vector2_y":4192,"_vector2_x":1264}}}},{"marker":50,"meta":{"_displayResult":false,"_selectedVisualizer":null,"_position":{"fromPosition":{"_vector2_y":4512,"_vector2_x":1584}}}},{"marker":51,"meta":{"_displayResult":false,"_selectedVisualizer":null,"_position":{"fromPosition":{"_vector2_y":4512,"_vector2_x":1264}}}},{"marker":52,"meta":{"_displayResult":false,"_selectedVisualizer":null,"_position":{"fromPosition":{"_vector2_y":4832,"_vector2_x":1584}}}},{"marker":53,"meta":{"_displayResult":false,"_selectedVisualizer":null,"_position":{"fromPosition":{"_vector2_y":4256,"_vector2_x":3232}}}},{"marker":54,"meta":{"_displayResult":false,"_selectedVisualizer":null,"_position":{"fromPosition":{"_vector2_y":3488,"_vector2_x":-32}}}},{"marker":55,"meta":{"_displayResult":false,"_selectedVisualizer":null,"_position":{"fromPosition":{"_vector2_y":3488,"_vector2_x":288}}}},{"marker":56,"meta":{"_displayResult":false,"_selectedVisualizer":null,"_position":{"fromPosition":{"_vector2_y":3488,"_vector2_x":608}}}},{"marker":57,"meta":{"_displayResult":false,"_selectedVisualizer":null,"_position":{"fromPosition":{"_vector2_y":3488,"_vector2_x":928}}}},{"marker":58,"meta":{"_displayResult":false,"_selectedVisualizer":null,"_position":{"fromPosition":{"_vector2_y":3872,"_vector2_x":400}}}},{"marker":59,"meta":{"_displayResult":false,"_selectedVisualizer":null,"_position":{"fromPosition":{"_vector2_y":3872,"_vector2_x":400}}}},{"marker":60,"meta":{"_displayResult":false,"_selectedVisualizer":null,"_position":{"fromPosition":{"_vector2_y":3872,"_vector2_x":400}}}},{"marker":61,"meta":{"_displayResult":false,"_selectedVisualizer":null,"_position":{"fromPosition":{"_vector2_y":3872,"_vector2_x":400}}}},{"marker":62,"meta":{"_displayResult":false,"_selectedVisualizer":null,"_position":{"fromPosition":{"_vector2_y":3872,"_vector2_x":720}}}},{"marker":63,"meta":{"_displayResult":false,"_selectedVisualizer":null,"_position":{"fromPosition":{"_vector2_y":4192,"_vector2_x":944}}}},{"marker":64,"meta":{"_displayResult":false,"_selectedVisualizer":null,"_position":{"fromPosition":{"_vector2_y":3488,"_vector2_x":1248}}}},{"marker":65,"meta":{"_displayResult":false,"_selectedVisualizer":null,"_position":{"fromPosition":{"_vector2_y":4256,"_vector2_x":3552}}}},{"marker":66,"meta":{"_displayResult":false,"_selectedVisualizer":null,"_position":{"fromPosition":{"_vector2_y":2800,"_vector2_x":1728}}}},{"marker":67,"meta":{"_displayResult":false,"_selectedVisualizer":null,"_position":{"fromPosition":{"_vector2_y":2800,"_vector2_x":2048}}}},{"marker":68,"meta":{"_displayResult":false,"_selectedVisualizer":null,"_position":{"fromPosition":{"_vector2_y":2800,"_vector2_x":2368}}}},{"marker":69,"meta":{"_displayResult":false,"_selectedVisualizer":null,"_position":{"fromPosition":{"_vector2_y":0,"_vector2_x":0}}}},{"marker":70,"meta":{"_displayResult":false,"_selectedVisualizer":null,"_position":{"fromPosition":{"_vector2_y":3200,"_vector2_x":5440}}}},{"marker":71,"meta":{"_displayResult":false,"_selectedVisualizer":null,"_position":{"fromPosition":{"_vector2_y":2800,"_vector2_x":2688}}}},{"marker":72,"meta":{"_displayResult":false,"_selectedVisualizer":null,"_position":{"fromPosition":{"_vector2_y":0,"_vector2_x":0}}}},{"marker":73,"meta":{"_displayResult":false,"_selectedVisualizer":null,"_position":{"fromPosition":{"_vector2_y":3120,"_vector2_x":2688}}}},{"marker":74,"meta":{"_displayResult":false,"_selectedVisualizer":null,"_position":{"fromPosition":{"_vector2_y":2800,"_vector2_x":3008}}}},{"marker":75,"meta":{"_displayResult":false,"_selectedVisualizer":null,"_position":{"fromPosition":{"_vector2_y":0,"_vector2_x":0}}}},{"marker":76,"meta":{"_displayResult":false,"_selectedVisualizer":null,"_position":{"fromPosition":{"_vector2_y":3120,"_vector2_x":3008}}}},{"marker":77,"meta":{"_displayResult":false,"_selectedVisualizer":null,"_position":{"fromPosition":{"_vector2_y":2800,"_vector2_x":3328}}}},{"marker":78,"meta":{"_displayResult":false,"_selectedVisualizer":null,"_position":{"fromPosition":{"_vector2_y":4256,"_vector2_x":2592}}}}]}

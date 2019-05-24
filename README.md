@@ -11,8 +11,8 @@ Dataset was downloaded from https://archive.ics.uci.edu/ml/machine-learning-data
 ## Cloning repository.
 
 ```bash
-git clone -b MNIST_tutorial https://github.com/Luna-Tensorflow/Luna-Tensorflow.git
 git clone https://github.com/Luna-Tensorflow/RegressionTutorial.git
+git clone -b MNIST_tutorial https://github.com/Luna-Tensorflow/Luna-Tensorflow.git
 cd RegressionTutorial
 ```
 
@@ -53,7 +53,7 @@ def oneHotOrigin table:
 
 def shuffle table:
     row = table.rowCount
-    rand = randomTensor FloatType [row] 0.0 0.0
+    rand = Tensors.random FloatType [row] 0.0 0.0
     col = columnFromList "rand" (rand.toFlatList)
     table1 = table.setAt "rand" col
     table2 = table1.sort "rand"
@@ -66,24 +66,16 @@ def sample table fracTest:
     train = table.drop testCount
     (train, test)
 
-
-def transposeTensor t:
-    c = makeConst t
-    perm = constFromList Int64Type [1,0]
-    transposed = transposeGen "" c perm c.typetag perm.typetag
-    t' = transposed.eval
-    t'
-
 def nfeatures:
     9
 
 def convertToTf shape table:
     "this is a workaround until we get native Dataframes <-> TF integration"
     lst = table.toList . each (col: col.toList)
-    t1 = tensorFromList2d FloatType lst
-    t2 = transposeTensor t1
-    lst' = tensorTo2dList t2
-    samples = lst'.each(l: tensorFromList FloatType shape l)
+    t1 = Tensors.fromList2d FloatType lst
+    t2 = Tensors.transpose t1
+    lst' = Tensors.to2dList t2
+    samples = lst'.each(l: Tensors.fromList FloatType shape l)
     samples
 
 def main:
@@ -108,20 +100,20 @@ def main:
     testY = convertToTf [1, 1] testLabels
 
     print "Building net"
-    i = input FloatType [nfeatures, 1]
-    d1 = denseWithActivation 64 relu i
-    d2 = denseWithActivation 64 relu d1
-    d3 = denseWithActivation 1 relu d2
+    i = Input.create FloatType [nfeatures, 1]
+    d1 = Dense.createWithActivation 64 Operations.relu i
+    d2 = Dense.createWithActivation 64 Operations.relu d1
+    d3 = Dense.createWithActivation 1 Operations.relu d2
 
     lr = 0.001
     rho = 0.9
     momentum = 0.0
     epsilon = 0.000000001
-    opt = rmsPropOptimizer lr rho momentum epsilon
+    opt = RMSPropOptimizer.create lr rho momentum epsilon
 
-    loss = meanSquareError
+    loss = MeanErrors.meanSquareError
 
-    model = makeModel i d3 opt loss
+    model = Models.make i d3 opt loss
 
 
     print "Training"
@@ -144,4 +136,4 @@ def absPatch x:
 
 ```
 
-![](screenshots/main.png)
+![](Screenshots/main.png)
