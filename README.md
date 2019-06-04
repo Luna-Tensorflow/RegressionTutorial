@@ -27,7 +27,7 @@ cd ../../../..
 ```
 
 ## Dataset
-In this tutorial we will use slightly preprocessed dataset of cars parameters, to predict their fuel usage (MPG - <i>miles per galon</i>). The dataset is a `.csv` format table with columns: `MPG`, `Cylinders`, `Displacement`, `Horsepower`, `Weight`, `Acceleration`, `Model Year` and `Origin`. The task is to predict value of first column, based on the rest of them. Unfortunately `Origin` column needs to be <i>one hot encoded</i>, so the last column will be replaced with three new columns: `USA`, `Europe`, `Japan`.
+In this tutorial we will use slightly preprocessed dataset of cars parameters, to predict their fuel usage (MPG - <i>miles per galon</i>). The dataset is in a `.csv` format table with columns: `MPG`, `Cylinders`, `Displacement`, `Horsepower`, `Weight`, `Acceleration`, `Model Year` and `Origin`. The task is to predict value of first column, based on the rest of them. Due to unlinear influence, `Origin` column needs to be <i>one hot encoded</i>, so the last column will be replaced with three new columns: `USA`, `Europe`, `Japan`.
 
 ![](Screenshots/dataSet.png)
 
@@ -78,7 +78,7 @@ def oneHotOrigin table:
     t3
 ```
 
-We need a function that shuffles rows of given table, to balance dataset. Here the original table is extended with random column, sorted, and then 
+We need a function that shuffles rows of given table, to balance dataset. Here the original table is extended with random column, sorted by this column, and then the random column is removed. 
 
 ```
 def shuffle table:
@@ -93,7 +93,7 @@ def shuffle table:
 
 ![](Screenshots/suffle.png)
 
-Function to divide dataset with given ratio, into test and train parts.
+Function that divides dataset with given ratio, into test and train parts.
 
 ```
 def sample table fracTest:
@@ -103,7 +103,7 @@ def sample table fracTest:
     (train, test)
 ```
 
-Function to convert the Dataframes table into tensors list. It simply converts table into two dimensional list, maps it to Luna `Real` type, transpose (because we need to flip columns and rows), and finally creates tensor from each row.
+Function that converts the Dataframes table into tensors list. It simply interprets table as two dimensional list, maps it to Luna `Real` type, transpose (because we need to flip columns and rows), and finally creates tensor of given shape, from each row.
 
 ```
 def dataframeToTensorList shape table:
@@ -169,7 +169,7 @@ def prepareData path:
 
 ![](Screenshots/prepareData.png)
 
-And last but not least, helper function to prepare the optimizing function used in a learning process.
+And last but not least, helper function to prepare the optimizing function, used in a learning process.
 
 ```
 def prepareOptimizer:
@@ -198,7 +198,7 @@ def main:
 ```
 </td><td>
 
-Loading batched dataset, divided into train and test parts.
+Loading batched datasets, divided into train and test parts.
 
 ![](Screenshots/preparedData.png)
 
@@ -288,7 +288,7 @@ Building model with its parameters:
 
 </td><td>
 
-Training model, and calculating its accuracy on the test dataset before and after a whole process.
+Training model, and calculating its error on the test dataset, before and after a whole process.
 ![](Screenshots/train.png)
 
 </td></tr> 
@@ -303,6 +303,6 @@ Evaluated model lets us observe the error ratio after training process, on the n
 
 </center>
 
-And this is the appearance of `main` function.
+Appearance of all `main` function nodes.
 
 ![](Screenshots/main.png)

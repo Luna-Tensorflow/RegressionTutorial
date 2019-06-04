@@ -282,7 +282,7 @@ cmake <span class="token punctuation">..</span>/src
 <span class="token function">cd</span> <span class="token punctuation">..</span>/<span class="token punctuation">..</span>/<span class="token punctuation">..</span>/<span class="token punctuation">..</span>
 </pre><h2 class="mume-header" id="dataset">Dataset</h2>
 
-<p>In this tutorial we will use slightly preprocessed dataset of cars parameters, to predict their fuel usage (MPG - <i>miles per galon</i>). The dataset is a <code>.csv</code> format table with columns: <code>MPG</code>, <code>Cylinders</code>, <code>Displacement</code>, <code>Horsepower</code>, <code>Weight</code>, <code>Acceleration</code>, <code>Model Year</code> and <code>Origin</code>. The task is to predict value of first column, based on the rest of them. Unfortunately <code>Origin</code> column needs to be <i>one hot encoded</i>, so the last column will be replaced with three new columns: <code>USA</code>, <code>Europe</code>, <code>Japan</code>.</p>
+<p>In this tutorial we will use slightly preprocessed dataset of cars parameters, to predict their fuel usage (MPG - <i>miles per galon</i>). The dataset is in a <code>.csv</code> format table with columns: <code>MPG</code>, <code>Cylinders</code>, <code>Displacement</code>, <code>Horsepower</code>, <code>Weight</code>, <code>Acceleration</code>, <code>Model Year</code> and <code>Origin</code>. The task is to predict value of first column, based on the rest of them. Due to unlinear influence, <code>Origin</code> column needs to be <i>one hot encoded</i>, so the last column will be replaced with three new columns: <code>USA</code>, <code>Europe</code>, <code>Japan</code>.</p>
 <p><img src="Screenshots/dataSet.png" alt></p>
 <p>To load dataset from <code>.csv</code> file, we will use Dataframes, which is Luna library allowing more comfortable work with big datasets (<a href="https://github.com/luna/dataframes">https://github.com/luna/dataframes</a>).</p>
 <h2 class="mume-header" id="lets-start-with-luna-studio">Let&apos;s start with Luna Studio!</h2>
@@ -314,7 +314,7 @@ import RegressionTutorial.DblColumn
     t2 = extendWith t1 &quot;Europe&quot; 2
     t3 = extendWith t2 &quot;Japan&quot; 3
     t3
-</code></pre><p>We need a function that shuffles rows of given table, to balance dataset. Here the original table is extended with random column, sorted, and then</p>
+</code></pre><p>We need a function that shuffles rows of given table, to balance dataset. Here the original table is extended with random column, sorted by this column, and then the random column is removed.</p>
 <pre data-role="codeBlock" data-info class="language-"><code>def shuffle table:
     row = table.rowCount
     rand = Tensors.random FloatType [row] 0.0 0.0
@@ -324,13 +324,13 @@ import RegressionTutorial.DblColumn
     table3 = table2.remove &quot;rand&quot;
     table3
 </code></pre><p><img src="Screenshots/suffle.png" alt></p>
-<p>Function to divide dataset with given ratio, into test and train parts.</p>
+<p>Function that divides dataset with given ratio, into test and train parts.</p>
 <pre data-role="codeBlock" data-info class="language-"><code>def sample table fracTest:
     testCount = (fracTest * table.rowCount.toReal).floor
     test = table.take testCount
     train = table.drop testCount
     (train, test)
-</code></pre><p>Function to convert the Dataframes table into tensors list. It simply converts table into two dimensional list, maps it to Luna <code>Real</code> type, transpose (because we need to flip columns and rows), and finally creates tensor from each row.</p>
+</code></pre><p>Function that converts the Dataframes table into tensors list. It simply interprets table as two dimensional list, maps it to Luna <code>Real</code> type, transpose (because we need to flip columns and rows), and finally creates tensor of given shape, from each row.</p>
 <pre data-role="codeBlock" data-info class="language-"><code>def dataframeToTensorList shape table:
     lst = table.toList . each (col: (col.toList).each (_.toReal))
     t1 = Tensors.fromList2d FloatType lst
@@ -380,7 +380,7 @@ Converting Dataframe tables to tensors, and batching them.
 
     (trainFeatures, testFeatures, trainLabels, testLabels)
 </code></pre><p><img src="Screenshots/prepareData.png" alt></p>
-<p>And last but not least, helper function to prepare the optimizing function used in a learning process.</p>
+<p>And last but not least, helper function to prepare the optimizing function, used in a learning process.</p>
 <pre data-role="codeBlock" data-info class="language-"><code>def prepareOptimizer:
     lr = 0.001
     rho = 0.9
@@ -399,7 +399,7 @@ Converting Dataframe tables to tensors, and batching them.
         trainLabels, testLabels) = 
             prepareData &quot;auto-mpg3.csv&quot;
 </code></pre></td><td>
-<p>Loading batched dataset, divided into train and test parts.</p>
+<p>Loading batched datasets, divided into train and test parts.</p>
 <p><img src="Screenshots/preparedData.png" alt></p>
 </td></tr> 
 <tr><td>
@@ -467,7 +467,7 @@ Converting Dataframe tables to tensors, and batching them.
 
     None
 </code></pre></td><td>
-<p>Training model, and calculating its accuracy on the test dataset before and after a whole process.<br>
+<p>Training model, and calculating its error on the test dataset, before and after a whole process.<br>
 <img src="Screenshots/train.png" alt></p>
 </td></tr> 
 </tbody></table>
@@ -475,7 +475,7 @@ Converting Dataframe tables to tensors, and batching them.
 <center>
 <p><img src="Screenshots/errorDiff.png" alt></p>
 </center>
-<p>And this is the appearance of <code>main</code> function.</p>
+<p>Appearance of all <code>main</code> function nodes.</p>
 <p><img src="Screenshots/main.png" alt></p>
 
       </div>
