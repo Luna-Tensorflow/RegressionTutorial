@@ -280,8 +280,14 @@ pre[data-line] .line-highlight[data-end]:after {
 cmake <span class="token punctuation">..</span>/src
 <span class="token function">make</span>
 <span class="token function">cd</span> <span class="token punctuation">..</span>/<span class="token punctuation">..</span>/<span class="token punctuation">..</span>/<span class="token punctuation">..</span>
-</pre><h2 class="mume-header" id="lets-start-with-luna-studio">Let&apos;s start with Luna Studio!</h2>
+</pre><h2 class="mume-header" id="dataset">Dataset</h2>
 
+<p>In this tutorial we will use slightly preprocessed dataset of cars parameters, to predict their fuel usage (MPG - <i>miles per galon</i>). The dataset is a <code>.csv</code> format table with columns: <code>MPG</code>, <code>Cylinders</code>, <code>Displacement</code>, <code>Horsepower</code>, <code>Weight</code>, <code>Acceleration</code>, <code>Model Year</code> and <code>Origin</code>. The task is to predict value of first column, based on the rest of them. Unfortunately <code>Origin</code> column needs to be <i>one hot encoded</i>, so the last column will be replaced with three new columns: <code>USA</code>, <code>Europe</code>, <code>Japan</code>.</p>
+<p><img src="Screenshots/dataSet.png" alt></p>
+<p>To load dataset from <code>.csv</code> file, we will use Dataframes, which is Luna library allowing more comfortable work with big datasets (<a href="https://github.com/luna/dataframes">https://github.com/luna/dataframes</a>).</p>
+<h2 class="mume-header" id="lets-start-with-luna-studio">Let&apos;s start with Luna Studio!</h2>
+
+<p>At the beggining we need some imports.</p>
 <pre data-role="codeBlock" data-info class="language-"><code>import Std.Base
 import Dataframes.Table
 import Dataframes.Column
@@ -295,15 +301,21 @@ import Tensorflow.Types
 import Tensorflow.Operations
 import Tensorflow.GeneratedOps
 import RegressionTutorial.DblColumn
-</code></pre><pre data-role="codeBlock" data-info class="language-"><code>def extendWith table name value:
+</code></pre><p>The size of dataset labels is the number of different cars parameters.</p>
+<pre data-role="codeBlock" data-info class="language-"><code>def nfeatures:
+    9
+</code></pre><p>Function to extend given table with new column of zeros and ones, depending on values in column <code>Origin</code>.</p>
+<pre data-role="codeBlock" data-info class="language-"><code>def extendWith table name value:
     table&apos; = table.eachTo name (row: (row.at &quot;Origin&quot; == value).switch 0.0 1.0)
     table&apos;
-</code></pre><pre data-role="codeBlock" data-info class="language-"><code>def oneHotOrigin table:
+</code></pre><p>Extending table with <i> one hot encoded </i> column <code>Origin</code>.</p>
+<pre data-role="codeBlock" data-info class="language-"><code>def oneHotOrigin table:
     t1 = extendWith table &quot;USA&quot; 1
     t2 = extendWith t1 &quot;Europe&quot; 2
     t3 = extendWith t2 &quot;Japan&quot; 3
     t3
-</code></pre><pre data-role="codeBlock" data-info class="language-"><code>def shuffle table:
+</code></pre><p>We need a function that shuffles rows of given table, to balance dataset. Here the original table is extended with random column, sorted, and then</p>
+<pre data-role="codeBlock" data-info class="language-"><code>def shuffle table:
     row = table.rowCount
     rand = Tensors.random FloatType [row] 0.0 0.0
     col = columnFromList &quot;rand&quot; (rand.toFlatList)
@@ -312,29 +324,42 @@ import RegressionTutorial.DblColumn
     table3 = table2.remove &quot;rand&quot;
     table3
 </code></pre><p><img src="Screenshots/suffle.png" alt></p>
+<p>Function to divide dataset with given ratio, into test and train parts.</p>
 <pre data-role="codeBlock" data-info class="language-"><code>def sample table fracTest:
     testCount = (fracTest * table.rowCount.toReal).floor
     test = table.take testCount
     train = table.drop testCount
     (train, test)
-</code></pre><pre data-role="codeBlock" data-info class="language-"><code>def nfeatures:
-    9
-</code></pre><pre data-role="codeBlock" data-info class="language-"><code>def dataFrameToTf shape table:
+</code></pre><p>Function to convert the Dataframes table into tensors list. It simply converts table into two dimensional list, maps it to Luna <code>Real</code> type, transpose (because we need to flip columns and rows), and finally creates tensor from each row.</p>
+<pre data-role="codeBlock" data-info class="language-"><code>def dataframeToTensorList shape table:
     lst = table.toList . each (col: (col.toList).each (_.toReal))
     t1 = Tensors.fromList2d FloatType lst
     t2 = Tensors.transpose t1
     lst&apos; = Tensors.to2dList t2
     samples = lst&apos;.each(l: Tensors.fromList FloatType shape l)
     samples
-</code></pre><p><img src="Screenshots/dataFrameToTf.png" alt></p>
+</code></pre><p><img src="Screenshots/dataframeToTensorList.png" alt></p>
+<p>To estimate correctness of models predictions we use mean error.</p>
 <pre data-role="codeBlock" data-info class="language-"><code>def error model xBatch yBatch:
-    predictions = model.evaluate xBatch
-    predictionsConst = Operations.makeConst predictions
+    preds = model.evaluate xBatch
+    predsConst = Operations.makeConst preds
     labelsConst = Operations.makeConst yBatch
-    diff = Operations.abs (predictionsConst - labelsConst)
-    accuracy = Operations.mean diff [1]
-    accuracy.eval.atIndex 0
+    diff = Operations.abs (predsConst - labelsConst)
+    error = Operations.mean diff [1]
+    error.eval.atIndex 0
 </code></pre><p><img src="Screenshots/error.png" alt></p>
+<p>Preparing data consists of three parts:</p>
+<ul>
+<li> 
+Loading data and <i> one hot encoding </i> last column,
+</li>
+<li>
+Dividing train and test datasets into features and labels,
+</li>
+<li>
+Converting Dataframe tables to tensors, and batching them.
+</li>
+</ul>
 <pre data-role="codeBlock" data-info class="language-"><code>def prepareData path:
     table = Table.read path
     table1 = table.dropNa
@@ -343,18 +368,19 @@ import RegressionTutorial.DblColumn
     table4 = shuffle table3
     (trainTable, testTable) = sample table4 0.2
 
-    trainLabels = trainTable.at &quot;MPG&quot;
-    testLabels = testTable.at &quot;MPG&quot;
-    trainTable&apos; = trainTable.remove &quot;MPG&quot;
-    testTable&apos; = testTable.remove &quot;MPG&quot;
+    trainLabels&apos; = trainTable.at &quot;MPG&quot;
+    testLabels&apos; = testTable.at &quot;MPG&quot;
+    trainFeatures&apos; = trainTable.remove &quot;MPG&quot;
+    testFeatures&apos; = testTable.remove &quot;MPG&quot;
 
-    trainX = Tensors.batchFromList $ dataFrameToTf [nfeatures] trainTable&apos;
-    testX = Tensors.batchFromList $ dataFrameToTf [nfeatures] testTable&apos;
-    trainY = Tensors.batchFromList $ dataFrameToTf [1] trainLabels
-    testY = Tensors.batchFromList $ dataFrameToTf [1] testLabels
+    trainFeatures = Tensors.batchFromList $ dataframeToTensorList [nFeatures] trainFeatures&apos;
+    testFeatures = Tensors.batchFromList $ dataframeToTensorList [nFeatures] testFeatures&apos;
+    trainLabels = Tensors.batchFromList $ dataframeToTensorList [1] trainLabels&apos;
+    testLabels = Tensors.batchFromList $ dataframeToTensorList [1] testLabels&apos;
 
-    (trainX, testX, trainY, testY)
+    (trainFeatures, testFeatures, trainLabels, testLabels)
 </code></pre><p><img src="Screenshots/prepareData.png" alt></p>
+<p>And last but not least, helper function to prepare the optimizing function used in a learning process.</p>
 <pre data-role="codeBlock" data-info class="language-"><code>def prepareOptimizer:
     lr = 0.001
     rho = 0.9
@@ -362,29 +388,95 @@ import RegressionTutorial.DblColumn
     epsilon = 0.000000001
     opt = RMSPropOptimizer.create lr rho momentum epsilon
     opt
-</code></pre><pre data-role="codeBlock" data-info class="language-"><code>def main:
-    (trainX, testX, trainY, testY) = prepareData &quot;auto-mpg3.csv&quot;
-    
-    input = Input.create FloatType [nfeatures]
-    d1 = Dense.createWithActivation 64 Operations.relu input
-    d2 = Dense.createWithActivation 64 Operations.relu d1
-    d3 = Dense.createWithActivation 1 Operations.relu d2
+</code></pre><h2 class="mume-header" id="building-model-training-and-testing">Building model, training and testing</h2>
 
-    opt = prepareOptimizer
-
+<p>Let&apos;s focus on the details of Luna Tensorflow API.</p>
+<table>
+<tbody><tr><th> Code </th><th> Node editor </th></tr>
+<tr><td>
+<pre data-role="codeBlock" data-info class="language-"><code>def main:
+    (trainFeatures, testFeatures, 
+        trainLabels, testLabels) = 
+            prepareData &quot;auto-mpg3.csv&quot;
+</code></pre></td><td>
+<p>Loading batched dataset, divided into train and test parts.</p>
+<p><img src="Screenshots/preparedData.png" alt></p>
+</td></tr> 
+<tr><td>
+<pre data-role="codeBlock" data-info class="language-"><code>    
+    input = Input.create 
+        FloatType 
+        [nFeatures]
+    d1 = Dense.createWithActivation 
+        64 
+        Operations.relu 
+        input
+    d2 = Dense.createWithActivation 
+        64 
+        Operations.relu 
+        d1
+    d3 = Dense.createWithActivation 
+        1 
+        Operations.relu 
+        d2
+</code></pre></td><td>
+<p>Connecting models layers in sequential order:</p>
+<ul>
+<li> input layer feeded with tensors of [nFeatures] shape, </li>
+<li> two fully connected layers with 64 output neurons, </li>
+<li> output fully connected layer with 1 neuron. </li>
+</ul>
+<p><img src="Screenshots/layers.png" alt></p>
+</td></tr> 
+<tr><td>
+<pre data-role="codeBlock" data-info class="language-"><code>    opt = prepareOptimizer
     loss = MeanErrors.meanSquareError
 
-    model = Models.make input d3 opt loss
+    model = Models.make 
+        input 
+        d3 
+        opt 
+        loss
     
-    untrainedError = error model testX testY
+    untrainedError = error 
+        model 
+        testFeatures 
+        testLabels
+</code></pre></td><td>
+<p>Building model with its parameters:</p>
+<ul>
+<li> input and output layers, </li>
+<li> prepared optimizer, </li>
+<li> mean square error loss function. </li>
+</ul>
+<p><img src="Screenshots/model.png" alt></p>
+</td></tr> 
+<tr><td>
+<pre data-role="codeBlock" data-info class="language-"><code>    epochs = 30
+    (h, trained) = model.train 
+        [trainFeatures] 
+        [trainLabels] 
+        epochs 
+        (ValidationFraction 0.1) 
+        0
 
-    epochs = 30
-    (h, trained) = model.train [trainX] [trainY] epochs (ValidationFraction 0.1) 0
-    trainedError = error trained testX testY
+    trainedError = error 
+        trained 
+        testFeatures 
+        testLabels
 
     None
-</code></pre><p><img src="Screenshots/main.png" alt></p>
+</code></pre></td><td>
+<p>Training model, and calculating its accuracy on the test dataset before and after a whole process.<br>
+<img src="Screenshots/train.png" alt></p>
+</td></tr> 
+</tbody></table>
+<p>Evaluated model lets us observe the error ratio after training process, on the node named <code>trainedError</code>. We can compare it with the error ratio before training, displayed on the node named <code>untrainedError</code>.</p>
+<center>
 <p><img src="Screenshots/errorDiff.png" alt></p>
+</center>
+<p>And this is the appearance of <code>main</code> function.</p>
+<p><img src="Screenshots/main.png" alt></p>
 
       </div>
       

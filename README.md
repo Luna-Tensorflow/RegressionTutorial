@@ -26,7 +26,16 @@ make
 cd ../../../..
 ```
 
+## Dataset
+In this tutorial we will use slightly preprocessed dataset of cars parameters, to predict their fuel usage (MPG - <i>miles per galon</i>). The dataset is a `.csv` format table with columns: `MPG`, `Cylinders`, `Displacement`, `Horsepower`, `Weight`, `Acceleration`, `Model Year` and `Origin`. The task is to predict value of first column, based on the rest of them. Unfortunately `Origin` column needs to be <i>one hot encoded</i>, so the last column will be replaced with three new columns: `USA`, `Europe`, `Japan`.
+
+![](Screenshots/dataSet.png)
+
+To load dataset from `.csv` file, we will use Dataframes, which is Luna library allowing more comfortable work with big datasets (https://github.com/luna/dataframes).
+
 ## Let's start with Luna Studio!
+
+At the beggining we need some imports.
 
 ```
 import Std.Base
@@ -44,11 +53,22 @@ import Tensorflow.GeneratedOps
 import RegressionTutorial.DblColumn
 ```
 
+The size of dataset labels is the number of different cars parameters.
+
+```
+def nfeatures:
+    9
+```
+
+Function to extend given table with new column of zeros and ones, depending on values in column `Origin`.
+
 ```
 def extendWith table name value:
     table' = table.eachTo name (row: (row.at "Origin" == value).switch 0.0 1.0)
     table'
 ```
+
+Extending table with <i> one hot encoded </i> column `Origin`.
 
 ```
 def oneHotOrigin table:
@@ -57,6 +77,8 @@ def oneHotOrigin table:
     t3 = extendWith t2 "Japan" 3
     t3
 ```
+
+We need a function that shuffles rows of given table, to balance dataset. Here the original table is extended with random column, sorted, and then 
 
 ```
 def shuffle table:
@@ -71,6 +93,8 @@ def shuffle table:
 
 ![](Screenshots/suffle.png)
 
+Function to divide dataset with given ratio, into test and train parts.
+
 ```
 def sample table fracTest:
     testCount = (fracTest * table.rowCount.toReal).floor
@@ -79,13 +103,10 @@ def sample table fracTest:
     (train, test)
 ```
 
-```
-def nfeatures:
-    9
-```
+Function to convert the Dataframes table into tensors list. It simply converts table into two dimensional list, maps it to Luna `Real` type, transpose (because we need to flip columns and rows), and finally creates tensor from each row.
 
 ```
-def dataFrameToTf shape table:
+def dataframeToTensorList shape table:
     lst = table.toList . each (col: (col.toList).each (_.toReal))
     t1 = Tensors.fromList2d FloatType lst
     t2 = Tensors.transpose t1
@@ -94,19 +115,35 @@ def dataFrameToTf shape table:
     samples
 ```
 
-![](Screenshots/dataFrameToTf.png)
+![](Screenshots/dataframeToTensorList.png)
+
+To estimate correctness of models predictions we use mean error.
 
 ```
 def error model xBatch yBatch:
-    predictions = model.evaluate xBatch
-    predictionsConst = Operations.makeConst predictions
+    preds = model.evaluate xBatch
+    predsConst = Operations.makeConst preds
     labelsConst = Operations.makeConst yBatch
-    diff = Operations.abs (predictionsConst - labelsConst)
-    accuracy = Operations.mean diff [1]
-    accuracy.eval.atIndex 0
+    diff = Operations.abs (predsConst - labelsConst)
+    error = Operations.mean diff [1]
+    error.eval.atIndex 0
 ```
 
 ![](Screenshots/error.png)
+
+Preparing data consists of three parts:
+<ul>
+<li> 
+Loading data and <i> one hot encoding </i> last column,
+</li>
+<li>
+Dividing train and test datasets into features and labels,
+</li>
+<li>
+Converting Dataframe tables to tensors, and batching them.
+</li>
+
+</ul>
 
 ```
 def prepareData path:
@@ -117,20 +154,22 @@ def prepareData path:
     table4 = shuffle table3
     (trainTable, testTable) = sample table4 0.2
 
-    trainLabels = trainTable.at "MPG"
-    testLabels = testTable.at "MPG"
-    trainTable' = trainTable.remove "MPG"
-    testTable' = testTable.remove "MPG"
+    trainLabels' = trainTable.at "MPG"
+    testLabels' = testTable.at "MPG"
+    trainFeatures' = trainTable.remove "MPG"
+    testFeatures' = testTable.remove "MPG"
 
-    trainX = Tensors.batchFromList $ dataFrameToTf [nfeatures] trainTable'
-    testX = Tensors.batchFromList $ dataFrameToTf [nfeatures] testTable'
-    trainY = Tensors.batchFromList $ dataFrameToTf [1] trainLabels
-    testY = Tensors.batchFromList $ dataFrameToTf [1] testLabels
+    trainFeatures = Tensors.batchFromList $ dataframeToTensorList [nFeatures] trainFeatures'
+    testFeatures = Tensors.batchFromList $ dataframeToTensorList [nFeatures] testFeatures'
+    trainLabels = Tensors.batchFromList $ dataframeToTensorList [1] trainLabels'
+    testLabels = Tensors.batchFromList $ dataframeToTensorList [1] testLabels'
 
-    (trainX, testX, trainY, testY)
+    (trainFeatures, testFeatures, trainLabels, testLabels)
 ```
 
 ![](Screenshots/prepareData.png)
+
+And last but not least, helper function to prepare the optimizing function used in a learning process.
 
 ```
 def prepareOptimizer:
@@ -142,30 +181,128 @@ def prepareOptimizer:
     opt
 ```
 
+## Building model, training and testing
+Let's focus on the details of Luna Tensorflow API.
+
+<table>
+
+<tr><th> Code </th><th> Node editor </th></tr>
+
+<tr><td>
+
 ```
 def main:
-    (trainX, testX, trainY, testY) = prepareData "auto-mpg3.csv"
+    (trainFeatures, testFeatures, 
+        trainLabels, testLabels) = 
+            prepareData "auto-mpg3.csv"
+```
+</td><td>
+
+Loading batched dataset, divided into train and test parts.
+
+![](Screenshots/preparedData.png)
+
+</td></tr> 
+
+<tr><td>
+
+```
     
-    input = Input.create FloatType [nfeatures]
-    d1 = Dense.createWithActivation 64 Operations.relu input
-    d2 = Dense.createWithActivation 64 Operations.relu d1
-    d3 = Dense.createWithActivation 1 Operations.relu d2
+    input = Input.create 
+        FloatType 
+        [nFeatures]
+    d1 = Dense.createWithActivation 
+        64 
+        Operations.relu 
+        input
+    d2 = Dense.createWithActivation 
+        64 
+        Operations.relu 
+        d1
+    d3 = Dense.createWithActivation 
+        1 
+        Operations.relu 
+        d2
+```
+</td><td>
 
+Connecting models layers in sequential order: 
+<ul>
+<li> input layer feeded with tensors of [nFeatures] shape, </li>
+<li> two fully connected layers with 64 output neurons, </li>
+<li> output fully connected layer with 1 neuron. </li>
+</ul>
+
+![](Screenshots/layers.png)
+
+</td></tr> 
+
+<tr><td>
+
+```
     opt = prepareOptimizer
-
     loss = MeanErrors.meanSquareError
 
-    model = Models.make input d3 opt loss
+    model = Models.make 
+        input 
+        d3 
+        opt 
+        loss
     
-    untrainedError = error model testX testY
+    untrainedError = error 
+        model 
+        testFeatures 
+        testLabels
+```
+</td><td>
 
+Building model with its parameters: 
+<ul>
+<li> input and output layers, </li>
+<li> prepared optimizer, </li>
+<li> mean square error loss function. </li>
+</ul>
+
+![](Screenshots/model.png)
+
+</td></tr> 
+
+<tr><td>
+
+```
     epochs = 30
-    (h, trained) = model.train [trainX] [trainY] epochs (ValidationFraction 0.1) 0
-    trainedError = error trained testX testY
+    (h, trained) = model.train 
+        [trainFeatures] 
+        [trainLabels] 
+        epochs 
+        (ValidationFraction 0.1) 
+        0
+
+    trainedError = error 
+        trained 
+        testFeatures 
+        testLabels
 
     None
 ```
 
-![](Screenshots/main.png)
+</td><td>
+
+Training model, and calculating its accuracy on the test dataset before and after a whole process.
+![](Screenshots/train.png)
+
+</td></tr> 
+
+</table>
+
+Evaluated model lets us observe the error ratio after training process, on the node named `trainedError`. We can compare it with the error ratio before training, displayed on the node named `untrainedError`.
+
+<center>
 
 ![](Screenshots/errorDiff.png)
+
+</center>
+
+And this is the appearance of `main` function.
+
+![](Screenshots/main.png)
