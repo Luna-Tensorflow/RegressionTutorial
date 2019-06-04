@@ -194,7 +194,7 @@ Let's focus on the details of Luna Tensorflow API.
 def main:
     (trainFeatures, testFeatures, 
         trainLabels, testLabels) = 
-            prepareData "auto-mpg3.csv"
+            prepareData "auto-mpg.csv"
 ```
 </td><td>
 
